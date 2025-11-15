@@ -115,7 +115,7 @@ export default function Home() {
         {/* HERO */}
         <section className="flex flex-col items-center gap-4 text-center sm:items-start sm:text-left">
           <h1 className="max-w-2xl text-4xl font-bold leading-tight tracking-tight text-white drop-shadow md:text-yellow md:drop-shadow-none">
-            <span className="text-blue-200 md:text-blue-600">Jaani</span> kodulehekülg.
+            <span className="text-blue-200 md:text-blue-600">Jaani</span> kodulehekülg
           </h1>
           <p className="max-w-xl text-lg leading-8 text-white/90 md:text-zinc-600">
             {profile.title}
