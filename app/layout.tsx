@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin", "latin-ext"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-ibm-plex-mono",
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "Jaani koduleht",
-  description: "Jaani multifunktsionaalne koduleht!!!",
+  title: "jaanmangib.dev",
+  description: "Jaan Mangib personaalne arendaja-leht, mida ehitatakse localhostis ja viiakse hiljem domeenile jaanmangib.dev.",
 };
 
 export default function RootLayout({
@@ -23,12 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+    <html lang="et">
+      <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} antialiased`}>{children}</body>
     </html>
   );
 }

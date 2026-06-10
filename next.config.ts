@@ -1,10 +1,12 @@
-import type { NextConfig } from "next";
-
-/** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    unoptimized: true, // jätame pildid optimeerimata (sobib GitHub Pagesile)
-    domains: ["cdn.discordapp.com"], // ← lisa see rida
+    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.discordapp.com",
+      },
+    ],
   },
   output: "export",
 };

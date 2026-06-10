@@ -1,232 +1,338 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
+import { FaDiscord, FaPaypal, FaTimes, FaTwitch, FaYoutube } from "react-icons/fa";
 
-// --- KONFIG ---
+const copy = {
+  domain: "jaanmangib.dev",
+  statusLine: "Igapäevane sõnum: wkndrp.ee",
+  name: "Jaan Mängib",
+  intro: "Vaieldamatu eesti rollimängu professionaal, kelle ees kohkub iga eesti rollimängu serveri admin.",
+  alias: "jaanmangib",
+  descriptionTitle: "Kirjeldus",
+  description: "Jaan Mängib on internetiavarustes tegutsev Eesti rollimängu tegelane, kelle nimi käib serverites ringi kiiremini kui admini timeout.",
+  discordTitle: "Discord",
+  archiveTitle: "Arhiiv",
+  archiveName: "RIP Wortex 2019-2025",
+  donateTitle: "Maksa elatisvõlg ära!",
+  donateBody: "Ära ole nagu rastamartti ja maksa elatisvõlg oma tütrele ära.",
+  openDiscord: "Ava Discordi profiil",
+  currentPrefix: "Praegu:",
+  pay: "Maksma",
+} as const;
+
 const profile = {
-  name: "jaanmangib",
-  title: "Eesti rollimängu profesionaal kelle ees kohkub ka wortexi admin vasja",
   discordId: "1038503233947181237",
   support: {
     paypalDonateLink: "https://paypal.me/jaanmangib",
   },
 };
 
-// --- Lanyard tüübid ---
+const quickAmounts = ["5", "15", "25", "50"];
+const defaultDiscordAvatar = "https://cdn.discordapp.com/embed/avatars/0.png";
+
 type LanyardUser = {
   id: string;
   username: string;
   global_name?: string | null;
-  avatar?: string | null;
 };
+
 type LanyardData = {
   discord_user: LanyardUser;
   discord_status: "online" | "idle" | "dnd" | "offline";
   activities: Array<{ id: string; name: string; type: number; state?: string; details?: string }>;
 };
+
 type LanyardResponse = { success: boolean; data?: LanyardData };
 
-// --- Abi: avatar URL ---
-function avatarUrl(u?: LanyardUser) {
-  if (!u?.avatar || !u?.id) return "/favicon.svg";
-  const ext = u.avatar.startsWith("a_") ? "gif" : "png";
-  return `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.${ext}?size=256`;
-}
-
-// --- Staatuse ikoon ---
-function StatusIcon({ status }: { status: string }) {
-  const common = "inline-block w-3 h-3 rounded-full mr-2";
+function statusLabel(status: LanyardData["discord_status"]) {
   switch (status) {
     case "online":
-      return <span className={`${common} bg-green-500`} title="Online" />;
+      return "Online";
     case "idle":
-      return <span className={`${common} bg-yellow-400`} title="Idle" />;
+      return "Idle";
     case "dnd":
-      return <span className={`${common} bg-red-500`} title="Do Not Disturb" />;
+      return "Do not disturb";
     default:
-      return <span className={`${common} bg-gray-500`} title="Offline" />;
+      return "Offline";
+  }
+}
+
+function statusColor(status: LanyardData["discord_status"]) {
+  switch (status) {
+    case "online":
+      return "bg-emerald-400";
+    case "idle":
+      return "bg-amber-300";
+    case "dnd":
+      return "bg-rose-400";
+    default:
+      return "bg-zinc-500";
   }
 }
 
 export default function Home() {
+  const [amount, setAmount] = useState("25.00");
   const [lanyard, setLanyard] = useState<LanyardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [amount, setAmount] = useState<string>("25.00");
-  const [agree, setAgree] = useState(false);
+  const [isWortexOpen, setIsWortexOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+
     const load = async () => {
       try {
-        const res = await fetch(`https://api.lanyard.rest/v1/users/${profile.discordId}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json: LanyardResponse = await res.json();
-        if (!json.success) throw new Error("Lanyard vastas success=false");
-        if (mounted) {
-          setLanyard(json.data ?? null);
-          setErr(null);
+        const res = await fetch(`https://api.lanyard.rest/v1/users/${profile.discordId}`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          return;
         }
-      } catch (e: any) {
-        if (mounted) setErr(e?.message ?? "Viga andmete laadimisel");
-      } finally {
-        if (mounted) setLoading(false);
+
+        const json: LanyardResponse = await res.json();
+
+        if (mounted && json.success) {
+          setLanyard(json.data ?? null);
+        }
+      } catch {
+        // Discord võib vaikselt ebaõnnestuda ilma lehte rikkumata.
       }
     };
+
     load();
-    const iv = setInterval(load, 15000);
+    const intervalId = setInterval(load, 15000);
+
     return () => {
       mounted = false;
-      clearInterval(iv);
+      clearInterval(intervalId);
     };
   }, []);
 
-  const status = lanyard?.discord_status ?? "offline";
-  const user = lanyard?.discord_user;
-  const displayName = user?.global_name || user?.username || "Discord";
+  useEffect(() => {
+    document.body.style.overflow = isWortexOpen ? "hidden" : "";
 
-  const statusLabel =
-    status === "online" ? "Linnas sees" : status === "idle" ? "Magab" : status === "dnd" ? "Ära sega" : "Piiri taga";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isWortexOpen]);
+
+  const user = lanyard?.discord_user;
+  const displayName = user?.global_name || user?.username || copy.name;
+  const status = lanyard?.discord_status ?? "offline";
+  const activity = lanyard?.activities.find((item) => item.name)?.name;
 
   const paypalWithAmount = (() => {
     const base = profile.support.paypalDonateLink;
-    if (!base) return "";
-    const n = Number(amount);
-    if (!isFinite(n) || n <= 0) return base;
-    const fixed = n.toFixed(2);
+    const parsedAmount = Number(amount);
+
+    if (!base || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return base;
+    }
+
+    const fixed = parsedAmount.toFixed(2);
     const trimmed = fixed.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
     return `${base}/${trimmed}`;
   })();
 
   return (
-    <div
-      className="relative min-h-screen"
-      style={{
-        backgroundImage: "url(/bg.png)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <div className="absolute inset-0 bg-black/30"></div>
+    <>
+      <div className="bg-[#111827] text-white">
+        <div className="bg-shapes">
+          <div className="mx-auto max-w-screen-xl px-4 py-4">
+            <header className="mt-2 rounded-2xl bg-[#1b2d46] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)] ring-1 ring-cyan-400/10">
+              <div className="flex items-center gap-3">
+                <div className="relative h-12 w-12 overflow-hidden rounded-full">
+                  <Image src={defaultDiscordAvatar} alt="Discord default avatar" fill className="object-cover" sizes="48px" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-white">{copy.domain}</h1>
+                  <p className="mt-1 text-sm text-cyan-100/85">{copy.statusLine}</p>
+                </div>
+              </div>
+            </header>
+          </div>
 
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-start gap-10 bg-white/70 px-8 py-16 backdrop-blur-sm dark:bg-black/50 sm:items-start sm:px-16">
-
-        {/* HERO */}
-        <section className="flex flex-col items-center gap-4 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-2xl text-4xl font-bold leading-tight tracking-tight text-white drop-shadow md:text-yellow md:drop-shadow-none">
-            <span className="text-blue-200 md:text-blue-600">Jaani</span> kodulehekülg
-          </h1>
-          <p className="max-w-xl text-lg leading-8 text-white/90 md:text-zinc-600">
-            {profile.title}
-          </p>
-        </section>
-
-        {/* DISCORD */}
-        <section id="discord" className="w-full">
-          <h2 className="mb-4 text-2xl font-semibold text-white md:text-zinc-50">Discord</h2>
-
-          <article className="rounded-2xl border border-white/30 bg-white/70 p-5 shadow-sm backdrop-blur dark:border-white/20 dark:bg-white/10">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="relative h-16 w-16 overflow-hidden rounded-full border border-white/40">
-                <img src={avatarUrl(user)} alt="Discord avatar" className="h-full w-full object-cover" />
+          <section className="relative flex min-h-[82vh] items-center">
+            <div className="mx-auto grid max-w-screen-xl gap-10 px-4 py-10 lg:grid-cols-12 lg:gap-8 lg:py-16">
+              <div className="place-self-center lg:col-span-7">
+                <h2 className="text-5xl font-extrabold leading-none text-white sm:text-6xl">{copy.name}</h2>
+                <p className="mt-4 text-3xl font-bold text-white">{copy.intro}</p>
+                <p className="mt-3 text-xl italic text-gray-400">aka {copy.alias}</p>
               </div>
 
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-lg font-semibold text-black dark:text-zinc-50">{displayName}</h3>
-                  <span
-                    className={
-                      "inline-flex items-center rounded-full border px-2 py-0.5 text-xs border-white/20 dark:border-white/20"
-                    }
-                  >
-                    <StatusIcon status={status} />
-                    {statusLabel}
-                  </span>
+              <div className="flex justify-center lg:col-span-5 lg:mt-0">
+                <div className="relative h-80 w-80 rounded-full p-1 ring-4 ring-cyan-500/80 lg:h-96 lg:w-96">
+                  <Image src={defaultDiscordAvatar} alt="Jaani profiilipilt" fill className="rounded-full object-cover" sizes="384px" priority />
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none">
+              <svg className="relative block h-20 w-full" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true">
+                <path
+                  d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                  className="fill-slate-700"
+                />
+              </svg>
+            </div>
+          </section>
+        </div>
+
+        <section className="bg-slate-700 px-4 py-12">
+          <div className="mx-auto max-w-screen-xl">
+            <div className="mb-4 rounded-2xl border border-gray-200/10 bg-white p-6 shadow dark:border-gray-700 dark:bg-gray-800">
+              <h3 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">{copy.descriptionTitle}</h3>
+              <p className="text-base text-gray-700 dark:text-white">{copy.description}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <article className="rounded-2xl border border-gray-200/10 bg-white p-6 shadow dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">{copy.discordTitle}</h3>
+
+                <div className="flex items-center gap-4">
+                  <div className="relative h-16 w-16 overflow-hidden rounded-full">
+                    <Image src={defaultDiscordAvatar} alt="Discord avatar" fill className="object-cover" sizes="64px" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">{displayName}</p>
+                    <div className="mt-1 inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <span className={`h-2.5 w-2.5 rounded-full ${statusColor(status)}`} aria-hidden="true" />
+                      {statusLabel(status)}
+                    </div>
+                  </div>
                 </div>
 
-                {lanyard?.activities?.[0]?.name && (
-                  <p className="mt-1 text-sm opacity-70 text-black dark:text-zinc-300">
-                    Aktiivne: {lanyard.activities[0].name}
-                  </p>
+                {activity && (
+                  <div className="mt-5 rounded-xl bg-gray-100 p-4 dark:bg-slate-700">
+                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                      {copy.currentPrefix} {activity}
+                    </p>
+                  </div>
                 )}
 
-                <a
-                  href={`https://discord.com/users/${profile.discordId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 inline-block text-sm underline"
-                >
-                  Profiil
-                </a>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <a
+                    href={`https://discord.com/users/${profile.discordId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#7289DA] px-5 py-2.5 text-white transition hover:bg-[#5a73cc]"
+                  >
+                    <FaDiscord className="h-4 w-4" />
+                    {copy.openDiscord}
+                  </a>
+                  <a
+                    href="https://twitch.tv/jaanmangib"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#9146FF] px-5 py-2.5 text-white transition hover:bg-[#7b31eb]"
+                  >
+                    <FaTwitch className="h-4 w-4" />
+                    Twitch - jaanmangib
+                  </a>
+                  <a
+                    href="https://youtube.com/@jaanmangib"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#FF0000] px-5 py-2.5 text-white transition hover:bg-[#df0000]"
+                  >
+                    <FaYoutube className="h-4 w-4" />
+                    YouTube - jaanmangib
+                  </a>
+                </div>
+              </article>
 
-                {loading && <p className="mt-1 text-sm opacity-60">Laen Discordi andmeid...</p>}
-                {err && (
-                  <p className="mt-1 text-sm text-red-400 md:text-red-600">
-                    Viga: {err}. (Kontrolli ID-d või Lanyardit)
-                  </p>
-                )}
+              <div className="grid gap-4">
+                <article className="rounded-2xl border border-gray-200/10 bg-white p-6 shadow dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">{copy.archiveTitle}</h3>
+                  <button type="button" onClick={() => setIsWortexOpen(true)} className="group block w-full overflow-hidden rounded-xl text-left">
+                    <div className="relative min-h-[12rem]">
+                      <Image
+                        src="/banner.png"
+                        alt="Wortex"
+                        fill
+                        className="object-cover transition duration-300 group-hover:scale-[1.03]"
+                        sizes="(max-width: 768px) 100vw, 40vw"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-4">
+                        <h4 className="text-2xl font-bold text-white">{copy.archiveName}</h4>
+                      </div>
+                    </div>
+                  </button>
+                </article>
+
+                <article id="support" className="rounded-2xl border border-gray-200/10 bg-white p-6 shadow dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">{copy.donateTitle}</h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-200">{copy.donateBody}</p>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {quickAmounts.map((quickAmount) => (
+                      <button
+                        key={quickAmount}
+                        type="button"
+                        onClick={() => setAmount(quickAmount)}
+                        className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
+                      >
+                        {quickAmount} €
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex items-center gap-3 rounded-xl bg-slate-100 px-4 py-4 dark:bg-slate-700">
+                    <span className="text-lg font-semibold text-slate-900 dark:text-white">€</span>
+                    <input
+                      id="amount"
+                      className="w-full bg-transparent text-xl font-semibold text-slate-900 outline-none placeholder:text-slate-500 dark:text-white dark:placeholder:text-slate-400"
+                      inputMode="decimal"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      placeholder="25.00"
+                    />
+                  </div>
+
+                  <a
+                    href={paypalWithAmount}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                  >
+                    <FaPaypal className="h-4 w-4" />
+                    {copy.pay}
+                  </a>
+                </article>
               </div>
             </div>
-          </article>
-        </section>
-
-        {/* KLIKITAV BÄNNER */}
-        <section className="w-full">
-          <div className="overflow-hidden rounded-2xl border border-white/30 bg-white/50 backdrop-blur">
-            <a href="/wortex" aria-label="Mine wortex lehele">
-              <img src="/banner.png" alt="Banner" className="h-56 w-full object-cover transition hover:opacity-90" />
-            </a>
-          </div>
-
-          <div className="mt-3 flex">
-            <a
-              href="/wortex"
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-600 to-yellow-600 px-6 py-3 text-white shadow-lg shadow-green/30 backdrop-blur hover:from-fuchsia-500 hover:to-red-500 transition"
-            >
-              Jaan wortexi adminiks
-            </a>
           </div>
         </section>
 
-        {/* MAKSA VÕLG ÄRA */}
-        <section id="debt" className="w-full">
-          <h2 className="mb-4 text-2xl font-semibold text-white md:text-zinc-50">Maksa võlg ära</h2>
-          <article className="rounded-2xl border border-white/30 bg-white/70 p-5 shadow-sm backdrop-blur dark:border-white/20 dark:bg-white/10">
-            <p className="text-sm text-black/80 dark:text-zinc-300">Sisesta summa ja saada rahad jaanini!</p>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]">
-              <div>
-                <label className="block text-sm font-medium text-black dark:text-zinc-200">Summa (€)</label>
-                <input
-                  className="mt-1 w-full rounded-lg border border-white/40 bg-white px-3 py-2 text-black shadow-inner dark:border-white/20 dark:bg-zinc-900 dark:text-zinc-100"
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="nt 25.00"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <a
-                href={paypalWithAmount}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                Raha saatma
-              </a>
-            </div>
-
-            <p className="mt-4 text-xs text-white/80 md:text-zinc-500">Märkus: JAAN RAHASI TAGASI EI SAADA.</p>
-          </article>
-        </section>
-
-        <footer className="w-full border-t border-white/30 pt-6 text-sm text-white/80 md:text-zinc-500">
-          © {new Date().getFullYear()} {profile.name}
+        <footer className="bg-slate-700 px-4 pb-6">
+          <div className="mx-auto max-w-screen-xl border-t border-white/10 pt-4 text-center text-sm text-slate-400">
+            Copyright {new Date().getFullYear()} {copy.domain}
+          </div>
         </footer>
-      </main>
-    </div>
+      </div>
+
+      {isWortexOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/68 px-4 py-6 backdrop-blur-[2px]" onClick={() => setIsWortexOpen(false)}>
+          <div
+            className="relative w-full max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-[0_30px_100px_rgba(0,0,0,0.45)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsWortexOpen(false)}
+              className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
+              aria-label="Sulge Wortex"
+            >
+              <FaTimes className="h-4 w-4" />
+            </button>
+            <div className="relative aspect-[16/10] w-full bg-slate-950">
+              <Image src="/wortex.png" alt="Wortex" fill className="object-contain" sizes="90vw" priority />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
